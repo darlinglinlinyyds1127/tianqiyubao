@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta
-from requests import Response
+from datetime import date, datetime, timedelta
+from collections import defaultdict
 from wechatpy import WeChatClient, WeChatClientException
 from wechatpy.client.api import WeChatMessage
 from borax.calendars.lunardate import LunarDate
+from random import randint
 import math
 import requests
 import os
@@ -39,8 +40,8 @@ xingzuo2 = xingzuo1.to_solar_date()
 cmonth = int(xingzuo2.strftime('%Y-%m-%d')[5:7])  # 切片
 cdate = int(xingzuo2.strftime('%Y-%m-%d')[8:])
 sdate = [20, 19, 21, 20, 21, 22, 23, 23, 23, 24, 23, 22]
-conts = ['摩羯座', '水瓶座', '双鱼座', '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座', '天秤座', '天蝎座',
-         '射手座', '摩羯座']
+conts = ['摩羯座', '水瓶座', '双鱼座', '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座', '天秤座',
+         '天蝎座', '射手座', '摩羯座']
 
 
 def sign(cmonth, cdate):
@@ -73,20 +74,23 @@ def get_weather_1():
         print('请设置城市')
         return None
     url = "https://v0.yiketianqi.com/api?unescape=1&version=v61&appid=78158848&appsecret=650ylFRx&city=" + city
-    res1: Response = requests.get(url, verify=False)
+    res1 = requests.get(url, verify=False)
     if res1.status_code != 200:
-        return res1
+        return res1()
     res11 = res1.json()
-    return res11['alarm'], res11['aqi'], res11['win'], res11['win_speed'], res11['tem'], res11['tem2'], res11['tem1']
+    return res11['alarm'], res11['aqi'], res11['win'], res11['win_speed'], \
+           res11['tem'], res11['tem2'], res11['tem1']
+
 
 # 天行数据接口
 def get_weather_2():
     url = "http://api.tianapi.com/tianqi/index?key=d5edced4967c76fd11899dbe1b753d91&city=" + city
     res2 = requests.get(url, verify=False)
     if res2.status_code != 200:
-        return res2
+        return res2()
     res21 = res2.json()['newslist'][0]
-    return res21['week'], res21['sunrise'], res21['sunset'], res21['weather'], res21['pop']
+    return res21['week'], res21['sunrise'], res21['sunset'], res21['weather'], \
+           res21['pop']
 
 
 def get_weather_3():
@@ -100,15 +104,18 @@ def get_weather_3():
     return res31[1]['wea'],res31[2]['wea'],res31[3]['wea'],res31[4]['wea'],res31[5]['wea'],res31[6]['wea'],res311[0]['desc'],res311[1]['desc'],res311[2]['desc'],res311[3]['desc'],res311[4]['desc'],res311[5]['desc']
 
 
+
 # 星座
 def get_xingzuo():
-    url = "http://api.tianapi.com/star/index?key=d5edced4967c76fd11899dbe1b753d91&astro=" + sign(cmonth, cdate)
+    url = "http://api.tianapi.com/star/index?key=d5edced4967c76fd11899dbe1b753d91&astro=" + sign(
+        cmonth, cdate)
     xingzuo = requests.get(url, verify=False)
     if xingzuo.status_code != 200:
-        return xingzuo
+        return get_xingzuo()
     data = xingzuo.json()['newslist']
-    return data[5]["content"], data[3]["content"], data[6]["content"], data[1]["content"], data[2]["content"], data[4][
-        "content"], data[7]["content"], data[8]["content"]
+    return data[5]["content"], data[3]["content"], data[6]["content"], data[1][
+        "content"], data[2]["content"], data[4]["content"], data[7]["content"], \
+           data[8]["content"]
 
 
 # 疫情接口
@@ -116,12 +123,13 @@ def get_Covid_19():
     url = "https://covid.myquark.cn/quark/covid/data?city=" + city
     res3 = requests.get(url)
     if res3.status_code != 200:
-        return res3
+        return res3()
     if city in ["北京", "上海", "天津", "重庆", "香港", "澳门", "台湾"]:
         res31 = res3.json()["provinceData"]
     else:
         res31 = res3.json()["cityData"]
-    return res31["sure_new_loc"], res31["sure_new_hid"], res31["present"], res31["danger"]["1"], res31["danger"]["2"]
+    return res31["sure_new_loc"], res31["sure_new_hid"], res31["present"], \
+           res31["danger"]["1"], res31["danger"]["2"]
 
 
 # 农历接口
@@ -132,7 +140,8 @@ def get_lunar_calendar():
     if lunar_calendar.status_code != 200:
         return get_lunar_calendar()
     res3 = lunar_calendar.json()['newslist'][0]
-    return res3['lubarmonth'], res3['lunarday'], res3['jieqi'], res3['lunar_festival'], res3['festival']
+    return res3['lubarmonth'], res3['lunarday'], res3['jieqi'], res3[
+        'lunar_festival'], res3['festival']
 
 
 # 纪念日正数
@@ -170,8 +179,10 @@ def split_birthday():
 
 # 元旦节倒计时
 def get_yuandan():
-    yuandan = datetime.strptime(str(today.year) + "-" + "01" + "-" + "01", "%Y-%m-%d")  # 元旦
-    next1 = (datetime.strptime(yuandan.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    yuandan = datetime.strptime(str(today.year) + "-" + "01" + "-" + "01",
+                                "%Y-%m-%d")  # 元旦
+    next1 = (datetime.strptime(yuandan.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next1 < 0 or next1 > 15:
         return None
     elif next1 > 0 and next1 <= 15:
@@ -184,7 +195,8 @@ def get_yuandan():
 # 春节倒计时
 def get_chunjie():
     spring_festival = LunarDate(lubaryear1, 1, 1).to_solar_date()
-    next2 = (datetime.strptime(spring_festival.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    next2 = (datetime.strptime(spring_festival.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next2 < 0 or next2 > 15:
         return None
     elif next2 > 0 and next2 <= 15:
@@ -197,7 +209,8 @@ def get_chunjie():
 # 踏青节倒计时
 def get_taqing():
     sching_ming_festival = LunarDate(lubaryear1, 3, 5).to_solar_date()
-    next3 = (datetime.strptime(sching_ming_festival.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    next3 = (datetime.strptime(sching_ming_festival.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next3 < 0 or next3 > 0:
         return None
     else:
@@ -207,8 +220,10 @@ def get_taqing():
 
 # 劳动节倒计时
 def get_laodong():
-    laodong = datetime.strptime(str(today.year) + "-" + "05" + "-" + "01", "%Y-%m-%d")
-    next4 = (datetime.strptime(laodong.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    laodong = datetime.strptime(str(today.year) + "-" + "05" + "-" + "01",
+                                "%Y-%m-%d")
+    next4 = (datetime.strptime(laodong.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next4 < 0 or next4 > 15:
         return None
     elif next4 > 0 and next4 <= 15:
@@ -221,7 +236,8 @@ def get_laodong():
 # 端午节倒计时
 def get_duanwu():
     duanwu = LunarDate(lubaryear1, 5, 5).to_solar_date()
-    next5 = (datetime.strptime(duanwu.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    next5 = (datetime.strptime(duanwu.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next5 < 0 or next5 > 15:
         return None
     elif next5 > 0 and next5 <= 15:
@@ -234,7 +250,8 @@ def get_duanwu():
 # 中秋节倒计时
 def get_zhongqiu():
     mid_autumn_festival = LunarDate(lubaryear1, 8, 15).to_solar_date()
-    next6 = (datetime.strptime(mid_autumn_festival.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    next6 = (datetime.strptime(mid_autumn_festival.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next6 < 0:
         return None
     elif next6 > 0 and next6 <= 15:
@@ -246,8 +263,10 @@ def get_zhongqiu():
 
 # 国庆节节倒计时
 def get_guoqing():
-    guoqing = datetime.strptime(str(today.year) + "-" + "10" + "-" + "01", "%Y-%m-%d")
-    next7 = (datetime.strptime(guoqing.strftime("%Y-%m-%d"), "%Y-%m-%d") - today).days
+    guoqing = datetime.strptime(str(today.year) + "-" + "10" + "-" + "01",
+                                "%Y-%m-%d")
+    next7 = (datetime.strptime(guoqing.strftime("%Y-%m-%d"),
+                               "%Y-%m-%d") - today).days
     if next7 < 0 or next7 > 15:
         return None
     elif next7 > 0 and next7 <= 15:
